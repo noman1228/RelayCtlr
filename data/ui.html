@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP32 Relay Controller</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-alt: #111827;
+      --card: #020617;
+      --accent: #22c55e;
+      --accent-soft: rgba(34,197,94,0.1);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --danger: #ef4444;
+      --danger-soft: rgba(239,68,68,0.1);
+      --radius-lg: 16px;
+      --radius-md: 10px;
+      --transition-fast: 0.15s ease-out;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
+      color: var(--text);
+    }
+
+    .layout {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: linear-gradient(135deg, #020617, #020617);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow:
+        0 18px 40px rgba(0,0,0,0.85),
+        0 0 0 1px rgba(148,163,184,0.15);
+      padding: 20px 22px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15,23,42,0.8);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .pill strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .pill.good {
+      border-color: rgba(34,197,94,0.35);
+      background: var(--accent-soft);
+      color: #bbf7d0;
+    }
+
+    .pill.good strong {
+      color: #bbf7d0;
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+
+    .pill-dot.good {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(34,197,94,0.18);
+    }
+
+    .pill-dot.bad {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(239,68,68,0.18);
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      background: radial-gradient(circle at top, #1f2937 0, #020617 70%);
+      color: var(--text);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 7px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .btn:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .btn.small {
+      font-size: 11px;
+      padding: 5px 10px;
+    }
+
+    .btn-primary {
+      border-color: var(--accent);
+      background: radial-gradient(circle at top, #22c55e 0, #16a34a 30%, #14532d 90%);
+      color: #042f16;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      border-color: #4ade80;
+    }
+
+    .status-chip {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--muted);
+    }
+
+    .status-chip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--danger);
+    }
+
+    .status-chip-dot.ok {
+      background: var(--accent);
+    }
+
+    .status-chip.ok {
+      color: #bbf7d0;
+      border-color: rgba(34,197,94,0.6);
+      background: rgba(22,163,74,0.16);
+    }
+
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+      margin: 10px 0 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+      font-size: 13px;
+    }
+
+    thead {
+      background: rgba(15,23,42,0.95);
+    }
+
+    th, td {
+      padding: 7px 9px;
+      border-bottom: 1px solid rgba(31,41,55,0.8);
+      text-align: left;
+    }
+
+    th {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    tbody tr:hover {
+      background: rgba(15,23,42,0.7);
+    }
+
+    .relay-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      color: var(--muted);
+    }
+
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 20px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(75,85,99,0.8);
+      cursor: pointer;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .toggle-knob {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: #9ca3af;
+      transition: transform var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+
+    .toggle.on {
+      background: rgba(22,163,74,0.6);
+      border-color: rgba(34,197,94,0.9);
+    }
+
+    .toggle.on .toggle-knob {
+      transform: translateX(18px);
+      background: #bbf7d0;
+      box-shadow: 0 0 0 3px rgba(34,197,94,0.3);
+    }
+
+    .gpio-input {
+      width: 64px;
+      background: rgba(15,23,42,0.9);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(55,65,81,0.9);
+      color: var(--text);
+      padding: 4px 6px;
+      font-size: 12px;
+    }
+
+    .gpio-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.4);
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .hint code {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(31,41,55,0.9);
+    }
+
+    .side-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .kv {
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+    }
+
+    .kv span:first-child {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 11px;
+    }
+
+    .kv span:last-child {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";
+    }
+
+    .log {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(31,41,55,0.95);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";
+      font-size: 11px;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .tag {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(75,85,99,0.9);
+      color: var(--muted);
+      background: rgba(15,23,42,0.9);
+    }
+
+    .tag.accent {
+      border-color: rgba(34,197,94,0.7);
+      color: #bbf7d0;
+      background: rgba(22,163,74,0.18);
+    }
+
+    .danger {
+      color: var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- LEFT: Relays -->
+    <div class="card">
+      <div class="header">
+        <div class="title-wrap">
+          <h1>ESP32 Relay Controller</h1>
+          <p class="subtitle">Input protocols: ArtNet / E1.31 / DDP · 8 channels · xLights discovery</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+          <div id="linkStatus" class="status-chip">
+            <span class="status-chip-dot"></span>
+            <span>Link: Unknown</span>
+          </div>
+          <button id="refreshBtn" class="btn small">
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="pill-row">
+        <div class="pill good">
+          <span class="pill-dot good"></span>
+          <strong>Protocols</strong>
+          <span id="protoLabel">ArtNet / E1.31 / DDP</span>
+        </div>
+        <div class="pill">
+          <span class="pill-dot"></span>
+          <strong>Channels</strong>
+          <span id="chanLabel">8</span>
+        </div>
+        <div class="pill good" id="discPill">
+          <span class="pill-dot good"></span>
+          <strong>xLights Discovery</strong>
+          <span id="discLabel">Enabled</span>
+        </div>
+      </div>
+
+      <div class="section-title">Relays</div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Relay</th>
+            <th>GPIO</th>
+            <th>State</th>
+          </tr>
+        </thead>
+        <tbody id="relayTableBody">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+
+      <p class="hint">
+        Toggle relays directly here, or drive them via <code>ArtNet</code>, <code>E1.31</code>, or <code>DDP</code> from xLights / FPP.
+      </p>
+    </div>
+
+    <!-- RIGHT: Info / tools -->
+    <div class="card side-card">
+      <div class="header" style="margin-bottom:8px;">
+        <div class="title-wrap">
+          <h1 style="font-size:18px;">Controller Info</h1>
+          <p class="subtitle">Status · Network · Protocols</p>
+        </div>
+      </div>
+
+      <div class="kv">
+        <span>IP Address</span>
+        <span id="ipAddr" class="mono">–</span>
+      </div>
+      <div class="kv">
+        <span>Protocols</span>
+        <span id="protoInfo" class="mono">ArtNet / E1.31 / DDP</span>
+      </div>
+      <div class="kv">
+        <span>Channels</span>
+        <span id="chanInfo" class="mono">8 (relays 1–8)</span>
+      </div>
+      <div class="kv">
+        <span>Discovery</span>
+        <span id="discInfo" class="mono">xLights: Enabled</span>
+      </div>
+
+      <div class="tag-row">
+        <div class="tag accent">ArtNet: UDP {{0x1936}}</div>
+        <div class="tag accent">E1.31: UDP 5568</div>
+        <div class="tag accent">DDP: UDP 4048</div>
+        <div class="tag">High-level trigger</div>
+        <div class="tag">8x relay block</div>
+      </div>
+
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button id="allOnBtn" class="btn btn-primary">All On</button>
+        <button id="allOffBtn" class="btn">All Off</button>
+      </div>
+
+      <div class="section-title" style="margin-top:18px;">Log</div>
+      <div id="log" class="log">
+        UI booted. Waiting for /api/config …
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const relayTableBody = document.getElementById("relayTableBody");
+    const linkStatus = document.getElementById("linkStatus");
+    const protoLabel = document.getElementById("protoLabel");
+    const chanLabel = document.getElementById("chanLabel");
+    const discPill = document.getElementById("discPill");
+    const discLabel = document.getElementById("discLabel");
+    const ipAddr = document.getElementById("ipAddr");
+    const protoInfo = document.getElementById("protoInfo");
+    const chanInfo = document.getElementById("chanInfo");
+    const discInfo = document.getElementById("discInfo");
+    const logEl = document.getElementById("log");
+
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      logEl.textContent += `\n[${ts}] ${msg}`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setLinkStatus(ok) {
+      const dot = linkStatus.querySelector(".status-chip-dot");
+      const label = linkStatus.querySelector("span:nth-child(2)");
+      if (ok) {
+        linkStatus.classList.add("ok");
+        dot.classList.add("ok");
+        label.textContent = "Link: Online";
+      } else {
+        linkStatus.classList.remove("ok");
+        dot.classList.remove("ok");
+        label.textContent = "Link: Offline";
+      }
+    }
+
+    function buildRelayRow(relay) {
+      const tr = document.createElement("tr");
+
+      const tdIndex = document.createElement("td");
+      tdIndex.textContent = relay.index + 1;
+      tr.appendChild(tdIndex);
+
+      const tdName = document.createElement("td");
+      const label = document.createElement("span");
+      label.className = "relay-name";
+      label.textContent = `Relay_${relay.index + 1}`;
+      tdName.appendChild(label);
+      tr.appendChild(tdName);
+
+      const tdGpio = document.createElement("td");
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.max = "39";
+      input.value = relay.gpio;
+      input.className = "gpio-input";
+      input.addEventListener("change", () => {
+        const v = parseInt(input.value, 10);
+        if (Number.isNaN(v) || v < 0 || v > 39) {
+          log(`GPIO for relay ${relay.index} rejected (invalid)`);
+          return;
+        }
+        const fd = new FormData();
+        fd.append("relay", relay.index);
+        fd.append("gpio", v);
+        fetch("/api/set_gpio", { method: "POST", body: fd })
+          .then(r => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            log(`Relay ${relay.index + 1}: GPIO → ${v}`);
+          })
+          .catch(err => log(`Error setting GPIO: ${err.message}`));
+      });
+      tdGpio.appendChild(input);
+      tr.appendChild(tdGpio);
+
+      const tdState = document.createElement("td");
+      const toggle = document.createElement("div");
+      toggle.className = "toggle" + (relay.state ? " on" : "");
+      const knob = document.createElement("div");
+      knob.className = "toggle-knob";
+      toggle.appendChild(knob);
+      toggle.addEventListener("click", () => {
+        const newState = !toggle.classList.contains("on");
+        const fd = new FormData();
+        fd.append("relay", relay.index);
+        fd.append("value", newState ? "1" : "0");
+        fetch("/api/set", { method: "POST", body: fd })
+          .then(r => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            toggle.classList.toggle("on", newState);
+            log(`Relay ${relay.index + 1}: ${newState ? "ON" : "OFF"} (manual)`);
+          })
+          .catch(err => log(`Error setting relay: ${err.message}`));
+      });
+      tdState.appendChild(toggle);
+      tr.appendChild(tdState);
+
+      return tr;
+    }
+
+    function renderConfig(cfg) {
+      relayTableBody.innerHTML = "";
+      (cfg.relays || []).forEach(r => {
+        relayTableBody.appendChild(buildRelayRow(r));
+      });
+
+      // Protocol/info banner
+      const protos = cfg.protocols || "ArtNet / E1.31 / DDP";
+      const chans = cfg.channels || (cfg.relays ? cfg.relays.length : 8);
+      const disc = cfg.xlights_discovery !== false;
+
+      protoLabel.textContent = protos;
+      chanLabel.textContent = chans.toString();
+
+      protoInfo.textContent = protos;
+      chanInfo.textContent = `${chans} (relays 1–${chans})`;
+
+      if (disc) {
+        discPill.classList.add("good");
+        discLabel.textContent = "Enabled";
+        discInfo.textContent = "xLights: Enabled";
+      } else {
+        discPill.classList.remove("good");
+        discLabel.textContent = "Disabled";
+        discInfo.textContent = "xLights: Disabled";
+      }
+
+      // Best-effort IP guess – this will show the origin IP in a browser,
+      // but when loaded from the ESP itself it's basically “the controller IP”.
+      ipAddr.textContent = window.location.hostname || "esp32.local";
+
+      setLinkStatus(true);
+      log("Config loaded from /api/config");
+    }
+
+    function loadConfig() {
+      setLinkStatus(false);
+      log("Fetching /api/config …");
+      fetch("/api/config", { cache: "no-store" })
+        .then(r => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(cfg => {
+          renderConfig(cfg);
+        })
+        .catch(err => {
+          setLinkStatus(false);
+          log("Error loading config: " + err.message);
+        });
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", () => {
+      loadConfig();
+    });
+
+    document.getElementById("allOnBtn").addEventListener("click", () => {
+      const rows = relayTableBody.querySelectorAll("tr");
+      rows.forEach((row, idx) => {
+        const toggle = row.querySelector(".toggle");
+        if (!toggle) return;
+        const fd = new FormData();
+        fd.append("relay", idx);
+        fd.append("value", "1");
+        fetch("/api/set", { method: "POST", body: fd })
+          .then(r => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            toggle.classList.add("on");
+          })
+          .catch(err => log(`Error setting relay ${idx + 1}: ${err.message}`));
+      });
+      log("All relays → ON (UI command)");
+    });
+
+    document.getElementById("allOffBtn").addEventListener("click", () => {
+      const rows = relayTableBody.querySelectorAll("tr");
+      rows.forEach((row, idx) => {
+        const toggle = row.querySelector(".toggle");
+        if (!toggle) return;
+        const fd = new FormData();
+        fd.append("relay", idx);
+        fd.append("value", "0");
+        fetch("/api/set", { method: "POST", body: fd })
+          .then(r => {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            toggle.classList.remove("on");
+          })
+          .catch(err => log(`Error setting relay ${idx + 1}: ${err.message}`));
+      });
+      log("All relays → OFF (UI command)");
+    });
+
+    // Initial load
+    loadConfig();
+  </script>
+</body>
+</html>
