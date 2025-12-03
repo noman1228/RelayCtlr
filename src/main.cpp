@@ -7,9 +7,11 @@
 #include <ArduinoJson.h>
 #include <ElegantOTA.h>
 #include <ESPAsyncE131.h>
+#include <Adafruit_PWMServoDriver.h>
 
 // If you already have discovery.{h,cpp} from earlier, keep this include:
 #include "discovery.h"
+#include "main_config.h"
 
 // ---------- PROTOCOL CONSTANTS ----------
 //
@@ -38,7 +40,8 @@
 // Misc
 #define ETHERNET_BUFFER_MAX   640
 #define STATUS_LED            2
-#define NUM_RELAYS            8
+
+Adafruit_PWMServoDriver pwm;
 
 // ---------- WiFi CONFIG (change these) ----------
 
@@ -46,18 +49,6 @@ const char* WIFI_SSID = "xlights";
 const char* WIFI_PASS = "christmas2024";
 
 // ---------- CONFIG / STATE STRUCTS ----------
-
-struct RelayConfig {
-    uint8_t gpio;   // GPIO number for this relay
-};
-
-struct DeviceConfig {
-    uint16_t universe;     // informational only (we no longer care about “DMX universe” semantics)
-    uint16_t startChan;    // informational only
-    RelayConfig relays[NUM_RELAYS];
-    char ssid[32];
-    char pass[32];
-};
 
 DeviceConfig cfg;
 Preferences prefs;
@@ -84,10 +75,9 @@ unsigned long currentDelay   = 0;
 void setRelay(uint8_t index, bool on) {
     if (index >= NUM_RELAYS) return;
     uint8_t gpio = cfg.relays[index].gpio;
-    if (gpio == 0xFF || gpio == 0) return;   // unmapped / disabled
+    if (gpio == 0xFF || gpio >= NUM_RELAYS) return;   // unmapped / disabled
 
-    pinMode(gpio, OUTPUT);
-    digitalWrite(gpio, on ? HIGH : LOW);     // HIGH = ON, LOW = OFF
+    pwm.setPin(gpio, on ? 4096 : 0);   // HIGH = ON, LOW = OFF
     relayState[index] = on;
 }
 
@@ -104,8 +94,9 @@ void loadCfg() {
     cfg.universe  = ARTNET_UNIVERSE;
     cfg.startChan = 1;
 
-    // ESP32-safe default pins (adjust if you like)
-    uint8_t defPins[NUM_RELAYS] = {26, 25, 27, 14, 33, 32, 13, 12};
+    // Default PCA9685 channel mapping 0..15
+    uint8_t defPins[NUM_RELAYS] = {0, 1, 2, 3, 4, 5, 6, 7,
+                                   8, 9, 10, 11, 12, 13, 14, 15};
     for (int i = 0; i < NUM_RELAYS; i++) {
         cfg.relays[i].gpio = defPins[i];
     }
@@ -244,8 +235,8 @@ void startWeb() {
                 request->send(400, "text/plain", "Invalid relay index");
                 return;
             }
-            if (gpio < 0 || gpio > 39) {
-                request->send(400, "text/plain", "Invalid GPIO");
+            if (gpio < 0 || gpio >= NUM_RELAYS) {
+                request->send(400, "text/plain", "Invalid channel");
                 return;
             }
 
@@ -424,6 +415,10 @@ void setup() {
     if (!SPIFFS.begin(true)) {
         Serial.println("SPIFFS mount failed!");
     }
+
+    pwm.begin();
+    pwm.setOscillatorFrequency(27000000);
+    pwm.setPWMFreq(1000);  // Fast enough for SSR on/off
 
     loadCfg();
     wifiConnect();

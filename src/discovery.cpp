@@ -46,7 +46,7 @@ static void sendDiscoveryReply(const IPAddress &remoteIP, uint16_t remotePort)
     JsonObject out    = outputs.createNestedObject();
     out["type"]       = "DDP";         // or "e1.31" but DDP matches your setup
     out["channel_start"] = cfg.startChan;
-    out["channel_count"] = 8;
+    out["channel_count"] = NUM_RELAYS;
     out["universe"]       = cfg.universe;
     out["universe_count"] = 1;
 
