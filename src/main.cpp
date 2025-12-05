@@ -192,6 +192,11 @@ void startWeb() {
         // For your banner
         doc["xlights_discovery"] = true;
 
+        // Advertise MultiSync capability sourced from on-board storage
+        JsonObject sync = doc.createNestedObject("multisync");
+        sync["enabled"] = true;
+        sync["source"]  = "sd";
+
         // Kept for backward compatibility with older UIs
         doc["universe"]  = cfg.universe;
         doc["startChan"] = cfg.startChan;

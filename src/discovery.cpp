@@ -10,6 +10,8 @@ extern DeviceConfig cfg;
 
 // UDP socket for discovery
 static WiFiUDP g_discUdp;
+// Multicast group used by FPP/xLights MultiSync + discovery
+static const IPAddress MULTISYNC_MCAST(239, 70, 80, 80);
 
 // FPP / xLights discovery port
 // (FPPDiscovery subscribes to broadcast + multicast on 32320)
@@ -50,6 +52,13 @@ static void sendDiscoveryReply(const IPAddress &remoteIP, uint16_t remotePort)
     out["universe"]       = cfg.universe;
     out["universe_count"] = 1;
 
+    // Indicate that we can follow MultiSync commands while using on-board
+    // storage (SD/SPIFFS) for media/sequences.
+    JsonObject sync = doc.createNestedObject("multisync");
+    sync["enabled"]  = true;
+    sync["sd_card"]  = true;
+    sync["storage"]  = "sd";
+
     String outStr;
     serializeJson(doc, outStr);
 
@@ -63,17 +72,24 @@ static void sendDiscoveryReply(const IPAddress &remoteIP, uint16_t remotePort)
 void startXLightsDiscovery()
 {
     // Listen on FPP/xLights discovery port 32320 on all interfaces
+    // Join the MultiSync multicast group so xLights/FPP "SD card" sync
+    // broadcasts are seen alongside unicast/broadcast discovery traffic.
+    if (!g_discUdp.beginMulticast(WiFi.localIP(), MULTISYNC_MCAST, FPP_DISCOVERY_PORT)) {
+        Serial.println("[DISCOVERY] FAILED to join multicast group 239.70.80.80:32320");
+        return;
+    }
+
+    // Also bind the unicast listener for direct queries.
     if (!g_discUdp.begin(FPP_DISCOVERY_PORT)) {
-        Serial.println("[DISCOVERY] FAILED to open UDP port 32320");
+        Serial.println("[DISCOVERY] FAILED to open UDP port 32320 for unicast");
         return;
     }
 
     Serial.print("[DISCOVERY] Listening for discovery on UDP port ");
     Serial.println(FPP_DISCOVERY_PORT);
 
-    // We are NOT using WiFi.enableMulticast() – ESP32 WiFiClass does
-    // not have that method. If you later need multicast membership
-    // for 239.70.80.80:32320, we’ll switch this to AsyncUDP.
+    Serial.print("[DISCOVERY] Joined MultiSync multicast group: ");
+    Serial.println(MULTISYNC_MCAST);
 }
 
 // Call this from loop()
